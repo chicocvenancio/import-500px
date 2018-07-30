@@ -1,33 +1,5 @@
-<!DOCTYPE HTML>
-<html>
-    <head>
-        <META NAME="ROBOTS" CONTENT="NOINDEX, NOFOLLOW">
-        <title>Import 500px</title>
-        <link rel="stylesheet" href="//tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css">
-        <script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/jquery/3.2.1/jquery.min.js'></script>
-        <script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js'></script>
-        <script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/twbs-pagination/1.4.1/jquery.twbsPagination.min.js'></script>
-    </head>
-<body>
- <nav class="navbar navbar-default navbar-static-top">
-      <div class="container-fluid">
-        <div class="navbar-header">
-          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
-            <span class="sr-only">Toggle navigation</span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-          </button>
-          <a class="navbar-brand" href="{{ url_for('index') }}">Import 500px</a>
-        </div>
-        <div id="navbar" class="collapse navbar-collapse">
-          <ul class="nav navbar-nav">
-            <li class="{% block nav_li_index %}{% endblock %}"><a href="{{ url_for('index') }}">Home</a></li>
-            <li class="{% block nav_li_tools %}{% endblock %}"><a href="{{ url_for('pdm') }}">PDM</a></li>
-          </ul>
-        </div>
-      </div>
-    </nav>
+{% extends "base.html" %}
+{% block before_header %}
 <div class="btn-group pull-right">
   <button type="button" class="btn btn-default dropdown-toggle " data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
     Internet Archive<span class="caret"></span>
@@ -37,23 +9,8 @@
     <li><a href="#" value="500px">500px</a></li>
   </ul>
 </div>
-<div id="header" class="container">
-    {% if username %}
-    <p>Hello {{ username }}!  <a href="{{ url_for('logout') }}">logout</a></p>
-    {% else %}
-    <p>Hello, please <a href="{{ url_for('login') }}">login</a> to enable direct Commons upload</p>
-    {% endif %}
-</div>
-    <nav>
-    <ul id="pagination" class="pagination pagination-lg">
-    </ul>
-    </nav>
-    <div id="content" class="container-fluid">
-    </div>
-    <nav>
-    <ul id="pagination" class="pagination pagination-lg">
-    </ul>
-    </nav>
+{% endblock %}
+{% block extra_content %}
 <div class="modal fade" id="privacyModal" tabindex="-1" role="dialog" aria-labelledby="privacyModalLabel">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
@@ -173,4 +130,4 @@ $('.cdn-source a').click(function(){
         min-width:400px;
     }
 </style>
-</body>
+{% endblock %}

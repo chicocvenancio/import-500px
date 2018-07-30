@@ -1,0 +1,55 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <META NAME="ROBOTS" CONTENT="NOINDEX, NOFOLLOW">
+        <title>{% block title %}Import 500px {% endblock %}</title>
+        <link rel="stylesheet" href="//tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css">
+        <script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/jquery/3.2.1/jquery.min.js'></script>
+        <script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js'></script>
+        {% block extra_scripts %}<script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/twbs-pagination/1.4.1/jquery.twbsPagination.min.js'></script>{%
+        endblock %}
+        </head>
+<body>
+{% block navbar %}
+ <nav class="navbar navbar-default navbar-static-top">
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="{{ url_for('index') }}">Import 500px</a>
+        </div>
+        <div id="navbar" class="collapse navbar-collapse">
+          <ul class="nav navbar-nav">
+            <li class="{% block nav_li_index %}{% endblock %}"><a href="{{ url_for('index') }}">Home</a></li>
+            <li class="{% block nav_li_pdm %}{% endblock %}"><a href="{{ url_for('pdm') }}">PDM</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+{% endblock %}
+{% block before_header %}
+{% endblock %}
+<div id="header" class="container">{% block header %}
+    {% if username %}
+    <p>Hello {{ username }}!  <a href="{{ url_for('logout') }}">logout</a></p>
+    {% else %}
+    <p>Hello, please <a href="{{ url_for('login') }}">login</a> to enable direct Commons upload</p>
+    {% endif %}{% endblock %}
+</div>
+{% block pagination %}
+    <nav>
+        <ul id="pagination" class="pagination pagination-lg">
+        </ul>
+    </nav>{% endblock %}
+    <div id="content" class="container-fluid">{% block content %}{% endblock %}
+    </div>
+{% block pagination_lower %}
+    <nav>
+        <ul id="pagination" class="pagination pagination-lg">
+        </ul>
+    </nav>{% endblock %}
+    {% block extra_content %}{% endblock %}
+</body>
