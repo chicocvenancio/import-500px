@@ -1,0 +1,176 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <META NAME="ROBOTS" CONTENT="NOINDEX, NOFOLLOW">
+        <title>Import 500px</title>
+        <link rel="stylesheet" href="//tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css">
+        <script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/jquery/3.2.1/jquery.min.js'></script>
+        <script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js'></script>
+        <script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/twbs-pagination/1.4.1/jquery.twbsPagination.min.js'></script>
+    </head>
+<body>
+ <nav class="navbar navbar-default navbar-static-top">
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="{{ url_for('index') }}">Import 500px</a>
+        </div>
+        <div id="navbar" class="collapse navbar-collapse">
+          <ul class="nav navbar-nav">
+            <li class="{% block nav_li_index %}{% endblock %}"><a href="{{ url_for('index') }}">Home</a></li>
+            <li class="{% block nav_li_tools %}{% endblock %}"><a href="{{ url_for('pdm') }}">PDM</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+<div class="btn-group pull-right">
+  <button type="button" class="btn btn-default dropdown-toggle " data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+    Internet Archive<span class="caret"></span>
+  </button>
+  <ul class="dropdown-menu cdn-source">
+    <li><a href="#" value="Internet Archive">Internet Archive</a></li>
+    <li><a href="#" value="500px">500px</a></li>
+  </ul>
+</div>
+<div id="header" class="container">
+    {% if username %}
+    <p>Hello {{ username }}!  <a href="{{ url_for('logout') }}">logout</a></p>
+    {% else %}
+    <p>Hello, please <a href="{{ url_for('login') }}">login</a> to enable direct Commons upload</p>
+    {% endif %}
+</div>
+    <nav>
+    <ul id="pagination" class="pagination pagination-lg">
+    </ul>
+    </nav>
+    <div id="content" class="container-fluid">
+    </div>
+    <nav>
+    <ul id="pagination" class="pagination pagination-lg">
+    </ul>
+    </nav>
+<div class="modal fade" id="privacyModal" tabindex="-1" role="dialog" aria-labelledby="privacyModalLabel">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="myModalLabel">Privacy Warning</h4>
+      </div>
+      <div class="modal-body">
+        This tool loads images from the Internet Archive by default. This will give them access to your private information, 
+        such as ip address and User Agent and their handling of your information is subject to the their
+        <a href="https://archive.org/about/terms.php">terms of use and privacy
+            policy</a>. Note there is an option to use the 500px CDN on the top
+        right, choosing that will 500px access to the same type of personal
+        data and is subject to their <a href="https://about.500px.com/terms/">terms of use</a>
+        and <a href="https://about.500px.com/privacy/">privacy policy</a>.
+      </div>
+      <div class="modal-footer">
+        <button id="privacy_out" type="button" class="btn btn-default" data-dismiss="modal">Do not load the images</button>
+        <button id="privacyOK" type="button" class="btn btn-primary" data-dismiss="modal">I'm Ok with that (bring the photos)</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+var page = {{page}}, cdn_source = "Internet Archive", get_images, get_license, make_popovers;
+get_images = function(page, perpage){
+    $.getJSON("https://tools.wmflabs.org/import-500px/{{page_name}}/" + page +
+            '?perpage=' + perpage).done(
+        function (data) { 
+            $('#content').html('');
+            data.forEach(function (photo) {
+                var url, $photo;
+                //console.log(photo.author);
+                if (photo.low_res_url){
+                    url = photo.low_res_url;
+                } else {
+                    url = photo.url;
+                }
+                if (cdn_source === "Internet Archive") {
+                    url = 'https://web.archive.org/web/201807id_/' + url;
+                } else if (cdn_source !== "500px") {
+                    url = "";
+                }
+                $photo = $('<div data-photo-id="' + photo.id +
+                           '" data-author-id="' + photo.author_id + '" data-author="' +
+                           decodeURIComponent(photo.author) + '" tabindex="0" class="col-md-3 photo_div btn">' + 
+                           '<img class="img-responsive" src=' +
+                            url + '> by ' + decodeURIComponent(photo.author) + '. License: ' +
+                            get_license(photo.license) + '</div>');
+                $('#content').append($photo);
+
+            });
+            make_popovers();
+        }
+    );
+};
+get_license = function (license_int) {
+    var license_map = {
+        4: 'CC-BY 3.0',
+        6: 'CC-BY-SA 3.0',
+        7: 'PDM (Public Domain Mark)',
+        8: 'CC0'
+    };
+    return license_map[license_int]
+};
+$('#privacyModal').modal();
+$('#privacy_out').click(function () {
+    $('.pagination').html('');
+});
+$('#privacyOK').click(function () {
+    get_images(page, {{perpage}});
+    history.pushState({'page': page}, "page " + page, "?page=" + page +
+        "&perpage=" + {{perpage}});
+});
+$('.pagination').twbsPagination({
+    totalPages: {{total_pages}},
+   startPage: page,
+   visiblePages: 10,
+   initiateStartPageClick: false,
+   onPageClick: function (event, page) {
+        get_images(page, {{perpage}});
+        history.pushState({'page': page}, "page " + page, "?page=" + page +
+            "&perpage=" + {{perpage}});
+   }
+});
+make_popovers = function() {
+    $('.photo_div').popover({
+        html: true,
+        trigger: 'click',
+        title: function() {
+            var author_id = $(this).data('authorId');
+            return 'Photo ' + $(this).data('photoId') + ' <a href="/import-500px/author/' +
+            author_id + '">by ' + $(this).data('author') + '</a>'
+        },
+        content: function() {
+            $.getJSON('https://tools-static.wmflabs.org/import-500px/' +
+            $(this).data('photoId') + '.json').done(
+                function (data){
+                    delete data.images;
+                    delete data.image_url;
+                    $('#popover_' + data.id).html('<pre>' + 
+                    JSON.stringify(data, undefined, 2) + '</pre>')
+                });
+        return '<div id=popover_' + $(this).data('photoId') +
+                '>LOADING json</div>'
+        },
+        placement: 'auto right'});
+ }
+$('.cdn-source a').click(function(){
+    cdn_source = $(this).attr('value');
+    $('.dropdown-toggle').text(cdn_source);
+});
+</script>
+<style type="text/css">
+    .popover{
+        max-width:600px;
+        min-width:400px;
+    }
+</style>
+</body>
