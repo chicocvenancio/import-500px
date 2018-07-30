@@ -157,10 +157,12 @@ def photo_detail(photo_id):
     with open('/data/project/import-500px/metadata/{}.json'.format(photo_id)) as j:
         photo = flask.json.loads(j.read())
     description = photo['description'] or photo['name']
+    license = LICENSE_MAP[photo['license_type']]
+    license = license.replace('{', '').replace('}', '')
     return flask.render_template(
         'item_detail.html', photo=photo, author=author_from_photo(photo),
         photo_str=flask.json.dumps(photo, indent=2), description=description,
-        photo_url=high_quality_url(photo))
+        photo_url=high_quality_url(photo), license=license)
 
 
 @app.route('/id/<int:photo_id>', methods=['GET'])
