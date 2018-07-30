@@ -91,11 +91,15 @@ def author_info(user_id):
             "fullname", "username"]}
 
 
-def build_description(photo):
+def author_from_photo(photo):
     author = photo['url'].split('by-')[-1].replace('-', ' ')
     author = re.sub(r'\b\w', lambda x: x.group().upper(), author)
     author = urllib.parse.unquote(author)
+    return author
 
+
+def build_description(photo):
+    author = author_from_photo(photo)
     location = ''
     description = photo['description'] or photo['name']
     if photo['latitude'] and photo['longitude']:
@@ -142,12 +146,21 @@ def upload(photo_id):
             comment=("Photo {} imported from 500px"
                      " with [[:wikitech:Tool:import-500px|"
                      "import-500px]]").format(photo['name']))
-        if result['result'] == 'Success':
-            commons_file = result['imageinfo']['descriptionurl']
     except Exception as e:
         print(e)
         result = e
     return flask.json.dumps(result)
+
+
+@app.route('/photo/<int:photo_id>', methods=['GET'])
+def photo_detail(photo_id):
+    with open('/data/project/import-500px/metadata/{}.json'.format(photo_id)) as j:
+        photo = flask.json.loads(j.read())
+    description = photo['description'] or photo['name']
+    return flask.render_template(
+        'item_detail.html', photo=photo, author=author_from_photo(photo),
+        photo_str=flask.json.dumps(photo, indent=2), description=description,
+        photo_url=high_quality_url(photo))
 
 
 @app.route('/id/<int:photo_id>', methods=['GET'])

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %} super() - detail photo {{ photo.id }}{% endblock %}
+{% block extra_scripts %}{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+Photo {{ photo.name }}, by {{author}} <a href="https://500px.com{{photo.url}}">original
+    link</a>, <a href="{{photo_url}}">archived_link</a>
+<p> Original description: {{description}}, with the tags: {{tags}}
+<div class="container-fluid">
+    <img class="img-responsive" src="{{photo_url}}">
+</div>
+<pre>{{ photo_str }}</pre>
+{% endblock %}

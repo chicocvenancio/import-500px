@@ -102,8 +102,10 @@ make_popovers = function() {
         trigger: 'click',
         title: function() {
             var author_id = $(this).data('authorId');
-            return 'Photo ' + $(this).data('photoId') + ' <a href="/import-500px/author/' +
-            author_id + '">by ' + $(this).data('author') + '</a>'
+            return '<a href="/import-500px/photo/' + $(this).data('photoId') +
+                   '"> Photo ' + $(this).data('photoId') + '</a>' +
+                   ' <a href="/import-500px/author/' +
+                    author_id + '">by ' + $(this).data('author') + '</a>'
         },
         content: function() {
             $.getJSON('https://tools-static.wmflabs.org/import-500px/' +
