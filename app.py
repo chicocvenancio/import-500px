@@ -113,7 +113,7 @@ def build_description(photo):
         location = '{{{{Location |{} |{}}}}}'.format(
             photo['latitude'], photo['longitude'])
     return DESCRIPTION_TEMPLATE.format(
-        description=description,
+        description=description.replace('|', ''),
         tags=' ,'.join(['#' + t for t in photo['tags']]),
         iso_date=pendulum.parse(photo['taken_at']).in_tz('UTC').format(
             'YYYY-MM-DD HH:mm:ss (zz)'),
