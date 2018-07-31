@@ -250,13 +250,16 @@ def _get_paginated_query(page, where='', *args, **kwargs):
     if perpage > 300:
         flask.abort(422)
     offset = (page - 1) * perpage
-    r = con.execute(('select id, author, url, license, low_res_url, author_id '
-                     'from s53823__importpx500.photos {} '
-                     'limit %s, %s').format(where), (offset, perpage))
+    r = con.execute(('select id, author, url, license, low_res_url, author_id,'
+                     ' comments, commons_name from s53823__importpx500.photos'
+                     ' left join s53823__importpx500.photo_comments'
+                     ' on id=photo_id {} limit %s, %s').format(where),
+                    (offset, perpage))
     p = r.fetchall()
     return(flask.json.dumps([{'id': i[0], 'author': i[1], 'url': i[2],
                             'license': i[3], 'low_res_url': i[4],
-                            'author_id': i[5]} for i in p]))
+                            'author_id': i[5], 'comments': i[6],
+                            'commons_name': i[7]} for i in p]))
 
 
 @app.route('/author/<int:author_id>/page/<int:page>', methods=['GET'])
