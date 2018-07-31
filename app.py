@@ -5,6 +5,7 @@ import random
 import io
 import urllib
 import re
+import ast
 
 import flask
 import mwoauth
@@ -121,6 +122,64 @@ def build_description(photo):
         location=location, title=photo['name'])
 
 
+@app.route('/comment/<int:photo_id>', methods=['POST', 'GET'])
+def comment(photo_id):
+    if flask.request.method == 'POST':
+        username = flask.session.get('username', None)
+        if username is None:
+            flask.abort(403)
+        comment = flask.request.json
+        if comment is None:
+            app.logger.warning(('Comment called for photo {} '
+                                'with no json').format(photo_id))
+            app.logger.warning('request {} '.format(flask.request.form))
+            flask.abort(400)
+        if not flask.request.is_json:
+            app.logger.error('Error in comment json.loads')
+            app.logger.error('Original json: {}'.format(comment))
+            flask.abort(400)
+        if len(comment.keys()) > 1 or username not in comment.keys():
+            flask.abort(400)
+        result = con.execute((
+            'select comments, commons_name'
+            ' from s53823__importpx500.photo_comments'
+            ' WHERE photo_id = %s;'), (photo_id,)).fetchone()
+        if result is None or result[0] is None:
+            current_comment = None
+        else:
+            try:
+                current_comment = flask.json.loads(ast.literal_eval(result[0]))
+            except Exception as e:
+                app.logger.error(('Error in comment json.loads'
+                                  ' for photo {}: {}').format(photo_id, e))
+                app.logger.error('Recorded json: {}'.format(result[0]))
+                flask.abort(500)
+            current_comment.update(comment)
+            comment = current_comment
+        comment = flask.json.dumps(comment)
+        result = con.execute((
+            'insert into s53823__importpx500.photo_comments'
+            ' VALUES (%s, null, %s) ON DUPLICATE KEY'
+            ' UPDATE comments="%s";'), (photo_id, comment, comment))
+        return flask.json.dumps({'result': 'ok'})
+    if flask.request.method == 'GET':
+        result = con.execute((
+            'select comments, commons_name'
+            ' from s53823__importpx500.photo_comments'
+            ' WHERE photo_id = %s;'), (photo_id,)).fetchone()
+        if result is None or result[0] is None:
+            current_comment = None
+        else:
+            try:
+                current_comment = flask.json.loads(ast.literal_eval(result[0]))
+            except Exception as e:
+                app.logger.error(('Error in comment json.loads'
+                                  ' for photo {}: {}').format(photo_id, e))
+                app.logger.error('Recorded json: {}'.format(result[0]))
+                flask.abort(500)
+        return flask.json.dumps(current_comment)
+
+
 @app.route('/upload/<int:photo_id>', methods=['POST'])
 def upload(photo_id):
     username = flask.session.get('username', None)
@@ -138,16 +197,21 @@ def upload(photo_id):
 
     url = high_quality_url(photo)
     photo['file'] = io.BytesIO(urllib.request.urlopen(url).read())
+    filename = '{} ({}).jpeg'.format(photo['name'], photo['id'])
     try:
         result = site.upload(
             file=photo['file'],
-            filename='{} ({}).jpeg'.format(photo['name'], photo['id']),
-            description=build_description(photo),
+            filename=filename, description=build_description(photo),
             comment=("Photo {} imported from 500px"
                      " with [[:wikitech:Tool:import-500px|"
                      "import-500px]]").format(photo['name']))
+        if result['result'] == 'Success':
+            result['sql_result'] = con.execute(
+                ('insert into s53823__importpx500.photo_comments'
+                 ' VALUES (?, "?", null) ON DUPLICATE KEY UPDATE commons_name'
+                 '="?";'),  (photo['id'], filename, filename)).fetchall()
     except Exception as e:
-        print(e)
+        app.logger.error(e)
         result = e
     return flask.json.dumps(result)
 
