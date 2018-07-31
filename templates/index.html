@@ -55,8 +55,11 @@ get_images = function(page, perpage){
                     url = "";
                 }
                 $photo = $('<div data-photo-id="' + photo.id +
-                           '" data-author-id="' + photo.author_id + '" data-author="' +
-                           decodeURIComponent(photo.author) + '" tabindex="0" class="col-md-3 photo_div btn">' + 
+                           '" data-author-id="' + photo.author_id +
+                           '" data-author="' + decodeURIComponent(photo.author) +
+                           '" data-commons-file="' + photo.commons_file +
+                           '" data-comments="' + photo.comments +
+                           '" tabindex="0" class="col-md-3 photo_div btn">' +
                            '<img class="img-responsive" src=' +
                             url + '> by ' + decodeURIComponent(photo.author) + '. License: ' +
                             get_license(photo.license) + '</div>');
