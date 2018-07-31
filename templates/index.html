@@ -104,11 +104,22 @@ make_popovers = function() {
         html: true,
         trigger: 'click',
         title: function() {
-            var author_id = $(this).data('authorId');
+            var author_id, comments, commons_file;
+            author_id = $(this).data('authorId');
+            comments = '';
+            commons_file = '';
+            if ($(this).data('comments')) {
+                comments = JSON.parse($(this).data('comments'));
+            }
+            if ($(this).data('commonsFile')) {
+                commons_file = ' <a href="//commons.wikimedia.org/wiki/File:' +
+                    $(this).data('commonsFile') + '"> File on Commons</a>'
+
             return '<a href="/import-500px/photo/' + $(this).data('photoId') +
                    '"> Photo ' + $(this).data('photoId') + '</a>' +
                    ' <a href="/import-500px/author/' +
-                    author_id + '">by ' + $(this).data('author') + '</a>'
+                    author_id + '">by ' + $(this).data('author') + '</a>' +
+                    commons_file
         },
         content: function() {
             $.getJSON('https://tools-static.wmflabs.org/import-500px/' +
