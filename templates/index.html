@@ -42,7 +42,8 @@ get_images = function(page, perpage){
         function (data) { 
             $('#content').html('');
             data.forEach(function (photo) {
-                var url, $photo;
+                var url, $photo, opacity_class;
+                opacity_class = '';
                 //console.log(photo.author);
                 if (photo.low_res_url){
                     url = photo.low_res_url;
@@ -54,13 +55,16 @@ get_images = function(page, perpage){
                 } else if (cdn_source !== "500px") {
                     url = "";
                 }
+                if (photo.commons_name) {
+                    opacity_class = " on_commons";
+                }
                 $photo = $('<div data-photo-id="' + photo.id +
                            '" data-author-id="' + photo.author_id +
                            '" data-author="' + decodeURIComponent(photo.author) +
                            '" data-commons-name="' + photo.commons_name +
                            '" data-comments="' + photo.comments +
-                           '" tabindex="0" class="col-md-3 photo_div btn">' +
-                           '<img class="img-responsive" src=' +
+                           '" tabindex="0" class="col-md-3 photo_div btn' +
+                           opacity_class + ">' + '<img class="img-responsive" src=' +
                             url + '> by ' + decodeURIComponent(photo.author) + '. License: ' +
                             get_license(photo.license) + '</div>');
                 $('#content').append($photo);
@@ -113,7 +117,8 @@ make_popovers = function() {
             }
             if ($(this).data('commonsName')) {
                 commons_file = ' <a href="//commons.wikimedia.org/wiki/File:' +
-                    $(this).data('commonsName') + '"> File on Commons</a>'
+                    $(this).data('commonsName') + '" class="bg-success"> File' +
+                    ' on Commons</a>'
             }
             return '<a href="/import-500px/photo/' + $(this).data('photoId') +
                    '"> Photo ' + $(this).data('photoId') + '</a>' +
@@ -144,6 +149,9 @@ $('.cdn-source a').click(function(){
     .popover{
         max-width:600px;
         min-width:400px;
+    }
+    .on_commons{
+        opacity: 0.5;
     }
 </style>
 {% endblock %}
