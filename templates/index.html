@@ -1,4 +1,9 @@
 {% extends "base.html" %}
+{% block extra_scripts %}
+{{ super() }}
+<link rel="stylesheet" href="//tools-static.wmflabs.org/cdnjs/ajax/libs/noty/3.1.4/noty.min.css" />
+<script src="//tools-static.wmflabs.org/cdnjs/ajax/libs/noty/3.1.4/noty.min.js"></script>
+{% endblock %}
 {% block before_header %}
 <div class="btn-group pull-right">
   <button type="button" class="btn btn-default dropdown-toggle " data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -127,15 +132,40 @@ make_popovers = function() {
                     commons_file
         },
         content: function() {
+            var buttons;
+            buttons = '';
+            if (!$(this).data('commonsName')){
+                buttons = '<button type="button" class="btn btn-primary" ' +
+                    'id=upload_' + $(this).data('photoId') + 
+                    ' data-photo-id="' + $(this).data('photoId') + 
+                    '">' + 'Upload to Commons</button>';
+            }
             $.getJSON('https://tools-static.wmflabs.org/import-500px/' +
-            $(this).data('photoId') + '.json').done(
+                $(this).data('photoId') + '.json').done(
                 function (data){
                     delete data.images;
                     delete data.image_url;
                     $('#popover_' + data.id).html('<pre>' + 
-                    JSON.stringify(data, undefined, 2) + '</pre>')
+                        JSON.stringify(data, undefined, 2) + '</pre>');
+                    $('#upload_' + data.id).click( function (event) {
+                        $.ajax({
+                            method: "POST",
+                            url: "/import-500px/upload/" + $(this).data('photoId'), 
+                            dataType: "json"
+                        }).done(function (data, s) {
+                            //console.log(data, s);
+                            if (data.result === "Success") {
+                                new Noty({
+                                    "type": "success",
+                                    "text": "File:" + data.filename +
+                                    " successfully uploaded to Commons!"
+                            }).show();
+                            }
+                        });
+                        console.log(this);
+                    });
                 });
-        return '<div id=popover_' + $(this).data('photoId') +
+        return buttons + '<div id=popover_' + $(this).data('photoId') +
                 '>LOADING json</div>'
         },
         placement: 'auto right'});

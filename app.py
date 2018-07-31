@@ -27,8 +27,7 @@ DESCRIPTION_TEMPLATE = """== {{{{int:filedesc}}}} ==
 | Permission     = {permission}
 | title          = {title}
 }}}}
-{location}
-{{{{imported with import-500px}}}}"""
+{location}"""
 LICENSE_MAP = {
     4: '{{Cc-by-3.0}}',
     6: '{{Cc-by-sa-3.0}}',
@@ -99,10 +98,17 @@ def author_from_photo(photo):
     return author
 
 
+def name_from_photo(photo):
+    name = photo['url'].split('-by')[0].split('/')[-1].replace('-', ' ')
+    name = re.sub(r'\b\w', lambda x: x.group().upper(), name)
+    name = urllib.parse.unquote(name)
+    return name
+
+
 def build_description(photo):
     author = author_from_photo(photo)
     location = ''
-    description = photo['description'] or photo['name']
+    description = photo['description'] or name_from_photo(photo)
     if photo['latitude'] and photo['longitude']:
         location = '{{{{Location |{} |{}}}}}'.format(
             photo['latitude'], photo['longitude'])
@@ -111,15 +117,13 @@ def build_description(photo):
         tags=' ,'.join(['#' + t for t in photo['tags']]),
         iso_date=pendulum.parse(photo['taken_at']).in_tz('UTC').format(
             'YYYY-MM-DD HH:mm:ss (zz)'),
-        source=('Imported from [https://500px.com{} 500px]. Archived at'
-                ' [https://web.archive.org/web/201807id_/{} the Web Archive]'
-                ' by [https://www.archiveteam.org/index.php?title=500px the'
-                ' Archive Team].').format(photo['url'],
-                                          high_quality_url(photo)),
+        source=('{{{{Imported with import-500px|url=https://500px.com{}|'
+                'archiveurl={}|photo_id={}}}}}').format(
+            photo['url'], high_quality_url(photo), photo['id']),
         author='[https://500px.com/{} {}]'.format(
             author_info(photo['user_id'])['username'], author),
         permission=LICENSE_MAP[photo['license_type']],
-        location=location, title=photo['name'])
+        location=location, title=name_from_photo(photo))
 
 
 @app.route('/comment/<int:photo_id>', methods=['POST', 'GET'])
@@ -197,19 +201,19 @@ def upload(photo_id):
 
     url = high_quality_url(photo)
     photo['file'] = io.BytesIO(urllib.request.urlopen(url).read())
-    filename = '{} ({}).jpeg'.format(photo['name'], photo['id'])
+    filename = '{} ({}).jpeg'.format(name_from_photo(photo), photo['id'])
     try:
         result = site.upload(
             file=photo['file'],
             filename=filename, description=build_description(photo),
             comment=("Photo {} imported from 500px"
                      " with [[:wikitech:Tool:import-500px|"
-                     "import-500px]]").format(photo['name']))
+                     "import-500px]]").format(name_from_photo(photo)))
         if result['result'] == 'Success':
-            result['sql_result'] = con.execute(
-                ('insert into s53823__importpx500.photo_comments'
-                 ' VALUES (?, "?", null) ON DUPLICATE KEY UPDATE commons_name'
-                 '="?";'),  (photo['id'], filename, filename)).fetchall()
+            con.execute(
+                ('insert into s53823__importpx500.photo_comments '
+                 'VALUES (%s, "%s", null) ON DUPLICATE KEY UPDATE commons_name'
+                 '=%s;'),  (photo['id'], filename, filename))
     except Exception as e:
         app.logger.error(e)
         result = e
@@ -220,7 +224,7 @@ def upload(photo_id):
 def photo_detail(photo_id):
     with open('/data/project/import-500px/metadata/{}.json'.format(photo_id)) as j:
         photo = flask.json.loads(j.read())
-    description = photo['description'] or photo['name']
+    description = photo['description'] or name_from_photo(photo)
     license = LICENSE_MAP[photo['license_type']]
     license = license.replace('{', '').replace('}', '')
     return flask.render_template(
