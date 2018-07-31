@@ -153,16 +153,23 @@ make_popovers = function() {
                             url: "/import-500px/upload/" + $(this).data('photoId'), 
                             dataType: "json"
                         }).done(function (data, s) {
-                            //console.log(data, s);
                             if (data.result === "Success") {
                                 new Noty({
                                     "type": "success",
                                     "text": "File:" + data.filename +
                                     " successfully uploaded to Commons!"
-                            }).show();
+                                }).show();
+                            }
+                        }).fail(function (data, s) {
+                            console.log(data, s);
+                            if (data.status === 403) {
+                                new Noty({
+                                    "type": "error",
+                                    "text": "There was a permission error " +
+                                    "with the upload, try relogging with OAuth"
+                                }).show();
                             }
                         });
-                        console.log(this);
                     });
                 });
         return buttons + '<div id=popover_' + $(this).data('photoId') +
