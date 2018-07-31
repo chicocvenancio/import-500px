@@ -57,7 +57,7 @@ get_images = function(page, perpage){
                 $photo = $('<div data-photo-id="' + photo.id +
                            '" data-author-id="' + photo.author_id +
                            '" data-author="' + decodeURIComponent(photo.author) +
-                           '" data-commons-name="' + photo.commons_file +
+                           '" data-commons-name="' + photo.commons_name +
                            '" data-comments="' + photo.comments +
                            '" tabindex="0" class="col-md-3 photo_div btn">' +
                            '<img class="img-responsive" src=' +
@@ -111,10 +111,10 @@ make_popovers = function() {
             if ($(this).data('comments')) {
                 comments = JSON.parse($(this).data('comments'));
             }
-            if ($(this).data('commonsFile')) {
+            if ($(this).data('commonsName')) {
                 commons_file = ' <a href="//commons.wikimedia.org/wiki/File:' +
-                    $(this).data('commonsFile') + '"> File on Commons</a>'
-
+                    $(this).data('commonsName') + '"> File on Commons</a>'
+            }
             return '<a href="/import-500px/photo/' + $(this).data('photoId') +
                    '"> Photo ' + $(this).data('photoId') + '</a>' +
                    ' <a href="/import-500px/author/' +
