@@ -64,7 +64,7 @@ get_images = function(page, perpage){
                            '" data-commons-name="' + photo.commons_name +
                            '" data-comments="' + photo.comments +
                            '" tabindex="0" class="col-md-3 photo_div btn' +
-                           opacity_class + ">' + '<img class="img-responsive" src=' +
+                           opacity_class + '">' + '<img class="img-responsive" src=' +
                             url + '> by ' + decodeURIComponent(photo.author) + '. License: ' +
                             get_license(photo.license) + '</div>');
                 $('#content').append($photo);
