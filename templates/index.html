@@ -129,7 +129,8 @@ make_popovers = function() {
                    '"> Photo ' + $(this).data('photoId') + '</a>' +
                    ' <a href="/import-500px/author/' +
                     author_id + '">by ' + $(this).data('author') + '</a>' +
-                    commons_file
+                    commons_file + '<span id="title_extra_' +
+                    $(this).data('photoId') + '"></span>'
         },
         content: function() {
             var buttons;
@@ -147,6 +148,10 @@ make_popovers = function() {
                     delete data.image_url;
                     $('#popover_' + data.id).html('<pre>' + 
                         JSON.stringify(data, undefined, 2) + '</pre>');
+                    $('#title_extra_' + data.id).html(
+                        '<a href="https://500px.com' + data.url +
+                        '"> (on 500px)</a>'
+                    );
                     $('#upload_' + data.id).click( function (event) {
                         $.ajax({
                             method: "POST",
