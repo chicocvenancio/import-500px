@@ -81,7 +81,8 @@ def author(author_id):
 def high_quality_url(photo):
     """Extract the highest quality url from the photo json"""
 
-    return [url for url in photo['image_url'] if 'm%3D2048/' in url][0]
+    return ("https://web.archive.org/web/201807id_/" +
+            [url for url in photo['image_url'] if 'm%3D2048/' in url][0])
 
 
 def author_info(user_id):
@@ -112,11 +113,17 @@ def build_description(photo):
     if photo['latitude'] and photo['longitude']:
         location = '{{{{Location |{} |{}}}}}'.format(
             photo['latitude'], photo['longitude'])
+    if photo['taken_at']:
+        date = pendulum.parse(photo['taken_at']).in_tz('UTC').format(
+            'YYYY-MM-DD HH:mm:ss (zz)')
+    else:
+        date = '{{{{other date|before|{}}}}}'.format(
+            pendulum.parse(photo['created_at']).in_tz('UTC').format(
+                'YYYY-MM-DD HH:mm:ss (zz)'))
     return DESCRIPTION_TEMPLATE.format(
         description=description.replace('|', ''),
         tags=' ,'.join(['#' + t for t in photo['tags']]),
-        iso_date=pendulum.parse(photo['taken_at']).in_tz('UTC').format(
-            'YYYY-MM-DD HH:mm:ss (zz)'),
+        iso_date=date,
         source=('{{{{Imported with import-500px|url=https://500px.com{}|'
                 'archiveurl={}|photo_id={}}}}}').format(
             photo['url'], high_quality_url(photo), photo['id']),
@@ -202,6 +209,7 @@ def upload(photo_id):
     url = high_quality_url(photo)
     photo['file'] = io.BytesIO(urllib.request.urlopen(url).read())
     filename = '{} ({}).jpeg'.format(name_from_photo(photo), photo['id'])
+    result = None
     try:
         result = site.upload(
             file=photo['file'],
@@ -212,10 +220,13 @@ def upload(photo_id):
         if result['result'] == 'Success':
             con.execute(
                 ('insert into s53823__importpx500.photo_comments '
-                 'VALUES (%s, "%s", null) ON DUPLICATE KEY UPDATE commons_name'
+                 'VALUES (%s, %s, null) ON DUPLICATE KEY UPDATE commons_name'
                  '=%s;'),  (photo['id'], filename, filename))
+        else:
+            app.logger.error(result)
     except Exception as e:
         app.logger.error(e)
+        app.logger.error(result, photo['id'])
         result = e
     return flask.json.dumps(result)
 
