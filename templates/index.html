@@ -27,6 +27,16 @@
             <li><a href="#" value="100">100</a></li>
             <li><a href="#" value="200">200</a></li>
             <li><a href="#" value="300">300</a></li>
+        </ul>
+    </span>
+    <span class="dropdown">
+        <button type="button" class="btn btn-default dropdown-toggle" id="show-on-commons" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        Hide Commons photos<span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu show-on-commons">
+            <li><a href="#" value="False">Hide Commons photos</a></li>
+            <li><a href="#" value="True">Show Commons photos</a></li>
+        </ul>
     </span>
 </div>
 {% endblock %}
@@ -67,8 +77,9 @@ get_images = function(page, perpage, on_commons){
         function (data) { 
             $('#content').html('');
             data.forEach(function (photo) {
-                var url, $photo, opacity_class;
+                var url, $photo, opacity_class, buttons;
                 opacity_class = '';
+                buttons = '';
                 //console.log(photo.author);
                 if (photo.low_res_url){
                     url = photo.low_res_url;
@@ -82,17 +93,53 @@ get_images = function(page, perpage, on_commons){
                 }
                 if (photo.commons_name) {
                     opacity_class = " on_commons";
+                } else {
+                    buttons = '<button type="button" class="btn btn-primary" ' +
+                        'id=upload_' + photo.id + 
+                        ' data-photo-id="' + photo.id + 
+                        '">' + 'Upload to Commons</button>';
                 }
-                $photo = $('<div data-photo-id="' + photo.id +
+                $photo = $('<div class="col-md-3">' +
+                            '<span data-photo-id="' + photo.id +
                            '" data-author-id="' + photo.author_id +
                            '" data-author="' + decodeURIComponent(photo.author) +
                            '" data-commons-name="' + photo.commons_name +
                            '" data-comments="' + photo.comments +
-                           '" tabindex="0" class="col-md-3 photo_div btn' +
+                           '" tabindex="0" class="photo_div btn' +
                            opacity_class + '">' + '<img class="img-responsive" src=' +
                             url + '> by ' + decodeURIComponent(photo.author) + '. License: ' +
-                            get_license(photo.license) + '</div>');
+                            get_license(photo.license) + '</span>' + buttons + '</div>');
                 $('#content').append($photo);
+                $('#upload_' + photo.id).click( function (event) {
+                    $.ajax({
+                        method: "POST",
+                        url: "/import-500px/upload/" + $(this).data('photoId'), 
+                        dataType: "json"
+                    }).done(function (data, s) {
+                        if (data.result === "Success") {
+                            new Noty({
+                                "type": "success",
+                                "text": "File:" + data.filename +
+                                " successfully uploaded to Commons!"
+                            }).show();
+                        } else {
+                            new Noty({
+                                "type": "error",
+                                "text": "Commons API error: " +
+                                JSON.stringify(data)
+                            }).show();
+                        }
+                    }).fail(function (data, s) {
+                        console.log(data, s);
+                        if (data.status === 403) {
+                            new Noty({
+                                "type": "error",
+                                "text": "There was a permission error " +
+                                "with the upload, try relogging with OAuth"
+                            }).show();
+                        }
+                    });
+                });
 
             });
             make_popovers();
@@ -127,11 +174,15 @@ $('#privacyOK').click(function () {
     }
 });
 make_pagination = function (perpage) {
-    var total_pages, old_perpage, page, search_params;
+    var total_pages, old_perpage, page, search_params, on_commons;
     search_params = new URLSearchParams(window.location.search);
     old_perpage = Number(search_params.get('perpage'));
     total_pages = {{total_pages}} / old_perpage * perpage
     $('#per-page').text(perpage + " per page");
+    on_commons = search_params.get('on_commons');
+    if (on_commons === "True") {
+        $('#show-on-commons').text("Show Commons Photo");
+    }
     page = Number(search_params.get('page'));
 $('.pagination').twbsPagination({
     totalPages: {{total_pages}},
@@ -177,12 +228,12 @@ make_popovers = function() {
         content: function() {
             var buttons;
             buttons = '';
-            if (!$(this).data('commonsName')){
-                buttons = '<button type="button" class="btn btn-primary" ' +
-                    'id=upload_' + $(this).data('photoId') + 
-                    ' data-photo-id="' + $(this).data('photoId') + 
-                    '">' + 'Upload to Commons</button>';
-            }
+            // if (!$(this).data('commonsName')){
+            //     buttons = '<button type="button" class="btn btn-primary" ' +
+            //         'id=upload_' + $(this).data('photoId') + 
+            //         ' data-photo-id="' + $(this).data('photoId') + 
+            //         '">' + 'Upload to Commons</button>';
+            // }
             $.getJSON('https://tools-static.wmflabs.org/import-500px/' +
                 $(this).data('photoId') + '.json').done(
                 function (data){
@@ -194,36 +245,6 @@ make_popovers = function() {
                         '<a href="https://500px.com' + data.url +
                         '"> (on 500px)</a>'
                     );
-                    $('#upload_' + data.id).click( function (event) {
-                        $.ajax({
-                            method: "POST",
-                            url: "/import-500px/upload/" + $(this).data('photoId'), 
-                            dataType: "json"
-                        }).done(function (data, s) {
-                            if (data.result === "Success") {
-                                new Noty({
-                                    "type": "success",
-                                    "text": "File:" + data.filename +
-                                    " successfully uploaded to Commons!"
-                                }).show();
-                            } else {
-                                new Noty({
-                                    "type": "error",
-                                    "text": "Commons API error: " +
-                                    JSON.stringify(data)
-                                }).show();
-                            }
-                        }).fail(function (data, s) {
-                            console.log(data, s);
-                            if (data.status === 403) {
-                                new Noty({
-                                    "type": "error",
-                                    "text": "There was a permission error " +
-                                    "with the upload, try relogging with OAuth"
-                                }).show();
-                            }
-                        });
-                    });
                 });
         return buttons + '<div id=popover_' + $(this).data('photoId') +
                 '>LOADING json</div>'
@@ -253,7 +274,17 @@ $('.per-page a').click(function(){
                       "&on_commons=" + search_params.get('on_commons');
 });
 
-
+$('.show-on-commons a').click(function(){
+    var action, search_params, old_action;
+    action = $(this).attr('value');
+    search_params = new URLSearchParams(window.location.search);
+    old_action = search_params.get('on_commons');
+    if (action !== old_action) {
+        window.location = "/import-500px/?page=" + search_params.get('page') +
+            "&perpage=" + search_params.get('perpage') + "&on_commons=" +
+            action;
+    }
+});
 </script>
 <style type="text/css">
     .popover{
