@@ -267,16 +267,16 @@ def upload(photo_id):
                  '=%s;'),  (photo['id'], filename, filename))
         else:
             app.logger.warning(result)
-            if 'exists' in result['warnings'].keys():
+            if 'duplicate' in result['warnings'].keys():
                 con.execute(
                     ('insert into s53823__importpx500.photo_comments '
                         'VALUES (%s, %s, null) ON DUPLICATE KEY UPDATE '
                         'commons_name=%s;'),
-                    (photo['id'], result['warnings']['exists'],
-                        result['warnings']['exists']))
+                    (photo['id'], result['warnings']['duplicate'][0],
+                        result['warnings']['duplicate'][0]))
                 app.logger.warning(
                     'Inserted duplicate commons_name: {}'.format(
-                        result['warnings']['exists']))
+                        result['warnings']['duplicate'][0]))
     except Exception as e:
         app.logger.error(e)
         app.logger.error(result)
