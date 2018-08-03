@@ -21,5 +21,13 @@ $.getJSON('https://tools-static.wmflabs.org/import-500px/' +
             $('#author').attr('href', '/import-500px/author/' + data.user_id);
         }
     );
+$.getJSON('/import-500px/id/' + window.location.pathname.split('/')[3]).done(
+    function (data){
+        if (data[0].commons_name){
+            $('#commons_link').append($('<a href="//commons.wikimedia.org/wiki/File:' +
+                data[0].commons_name + '" class="bg-success">File on Commons</a>'));
+        }
+    }
+);
 </script>
 {% endblock %}
