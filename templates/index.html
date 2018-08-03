@@ -93,6 +93,9 @@ get_images = function(page, perpage, on_commons){
                 }
                 if (photo.commons_name) {
                     opacity_class = " on_commons";
+                    buttons = '<a href="//commons.wikimedia.org/wiki/File:' +
+                    photo.commons_name + '" class="bg-success"> File' +
+                    ' on Commons</a>'
                 } else {
                     buttons = '<button type="button" class="btn btn-primary" ' +
                         'id=upload_' + photo.id + 
