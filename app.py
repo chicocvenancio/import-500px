@@ -327,12 +327,15 @@ def photo_detail(photo_id):
 
 @app.route('/id/<int:photo_id>', methods=['GET'])
 def photo_by_id(photo_id):
-    r = con.execute(('select id, author, url, license '
-                     'from s53823__importpx500.photos '
-                     'where id = %s'), (photo_id, ))
+    r = con.execute(('select id, author, url, license, low_res_url, author_id,'
+                     ' comments, commons_name from s53823__importpx500.photos'
+                     ' left join s53823__importpx500.photo_comments'
+                     ' on id=photo_id where id = %s'), (photo_id, ))
     p = r.fetchall()
     return(flask.json.dumps([{'id': i[0], 'author': i[1], 'url': i[2],
-                              'license': i[3]} for i in p]))
+                            'license': i[3], 'low_res_url': i[4],
+                            'author_id': i[5], 'comments': i[6],
+                            'commons_name': i[7]} for i in p]))
 
 
 @app.route('/page/<int:page>', methods=['GET'])
