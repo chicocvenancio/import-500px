@@ -6,13 +6,28 @@
 {% endblock %}
 {% block before_header %}
 <div class="btn-group pull-right">
-  <button type="button" class="btn btn-default dropdown-toggle " data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-    Internet Archive<span class="caret"></span>
-  </button>
-  <ul class="dropdown-menu cdn-source">
-    <li><a href="#" value="Internet Archive">Internet Archive</a></li>
-    <li><a href="#" value="500px">500px</a></li>
-  </ul>
+    <span class="dropdown">
+        <button type="button" class="btn btn-default dropdown-toggle" id="cdn-source" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        Internet Archive<span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu cdn-source">
+            <li><a href="#" value="Internet Archive">Internet Archive</a></li>
+            <li><a href="#" value="500px">500px</a></li>
+        </ul>
+    </span>
+    <span class="dropdown">
+        <button type="button" class="btn btn-default dropdown-toggle" id="per-page" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        20 per page<span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu per-page">
+            <li><a href="#" value="20">20</a></li>
+            <li><a href="#" value="30">30</a></li>
+            <li><a href="#" value="40">40</a></li>
+            <li><a href="#" value="50">50</a></li>
+            <li><a href="#" value="100">100</a></li>
+            <li><a href="#" value="200">200</a></li>
+            <li><a href="#" value="300">300</a></li>
+    </span>
 </div>
 {% endblock %}
 {% block extra_content %}
@@ -35,15 +50,20 @@
       <div class="modal-footer">
         <button id="privacy_out" type="button" class="btn btn-default" data-dismiss="modal">Do not load the images</button>
         <button id="privacyOK" type="button" class="btn btn-primary" data-dismiss="modal">I'm Ok with that (bring the photos)</button>
+        <span class="checkbox-inline">
+            <input id="privacy_checkbox" type="checkbox">
+            <label>Do not ask again</label>
+        </span>
       </div>
     </div>
   </div>
 </div>
 <script>
-var page = {{page}}, cdn_source = "Internet Archive", get_images, get_license, make_popovers;
-get_images = function(page, perpage){
+var page = {{page}}, cdn_source = "Internet Archive", get_images, get_license,
+    make_popovers, make_pagination;
+get_images = function(page, perpage, on_commons){
     $.getJSON("https://tools.wmflabs.org/import-500px/{{page_name}}/" + page +
-            '?perpage=' + perpage).done(
+            '?perpage=' + perpage + '&on_commons=' + on_commons).done(
         function (data) { 
             $('#content').html('');
             data.forEach(function (photo) {
@@ -88,26 +108,48 @@ get_license = function (license_int) {
     };
     return license_map[license_int]
 };
-$('#privacyModal').modal();
+if (localStorage.getItem('import-500px.privacy_ok')) {
+    get_images(page, {{perpage}}, '{{ on_commons }}');
+    history.pushState({'page': page}, "page " + page, "?page=" + page +
+        "&perpage=" + {{perpage}} + '&on_commons=' + '{{ on_commons }}');
+} else {
+    $('#privacyModal').modal();
+}
 $('#privacy_out').click(function () {
     $('.pagination').html('');
 });
 $('#privacyOK').click(function () {
-    get_images(page, {{perpage}});
+    get_images(page, {{perpage}}, '{{ on_commons }}');
     history.pushState({'page': page}, "page " + page, "?page=" + page +
-        "&perpage=" + {{perpage}});
+        "&perpage=" + {{perpage}} + '&on_commons=' + '{{ on_commons }}');
+    if ($('#privacy_checkbox').prop('checked')) {
+        localStorage.setItem('import-500px.privacy_ok', true);
+    }
 });
+make_pagination = function (perpage) {
+    var total_pages, old_perpage, page, search_params;
+    search_params = new URLSearchParams(window.location.search);
+    old_perpage = Number(search_params.get('perpage'));
+    total_pages = {{total_pages}} / old_perpage * perpage
+    $('#per-page').text(perpage + " per page");
+    page = Number(search_params.get('page'));
 $('.pagination').twbsPagination({
     totalPages: {{total_pages}},
    startPage: page,
    visiblePages: 10,
    initiateStartPageClick: false,
    onPageClick: function (event, page) {
-        get_images(page, {{perpage}});
+        var search_params, perpage, on_commons;
+        search_params = new URLSearchParams(window.location.search);
+        perpage = search_params.get('perpage')
+        get_images(page, Number(perpage), '{{on_commons}}');
         history.pushState({'page': page}, "page " + page, "?page=" + page +
-            "&perpage=" + {{perpage}});
+            "&perpage=" + perpage + '&on_commons=' + '{{on_commons}}');
    }
-});
+   });
+}
+make_pagination({{perpage}});
+
 make_popovers = function() {
     $('.photo_div').popover({
         html: true,
@@ -164,6 +206,12 @@ make_popovers = function() {
                                     "text": "File:" + data.filename +
                                     " successfully uploaded to Commons!"
                                 }).show();
+                            } else {
+                                new Noty({
+                                    "type": "error",
+                                    "text": "Commons API error: " +
+                                    JSON.stringify(data)
+                                }).show();
                             }
                         }).fail(function (data, s) {
                             console.log(data, s);
@@ -184,8 +232,28 @@ make_popovers = function() {
  }
 $('.cdn-source a').click(function(){
     cdn_source = $(this).attr('value');
-    $('.dropdown-toggle').text(cdn_source);
+    $('#cdn-source').text(cdn_source);
 });
+$('.per-page a').click(function(){
+    var perpage, search_params, page, old_perpage;
+    perpage = Number($(this).attr('value'));
+    search_params = new URLSearchParams(window.location.search);
+    //$('#per-page').text(perpage + " per page");
+    page = Number(search_params.get('page'));
+    old_perpage = Number(search_params.get('perpage'));
+    page = page * old_perpage / perpage
+    page = page.toFixed()
+    //get_images(page, perpage, '{{on_commons}}');
+    //$('.pagination').twbsPagination('destroy');
+    //make_pagination(perpage);
+    //history.pushState({'page': page}, "page " + page, "?page=" + page +
+    //    "&perpage=" + perpage + '&on_commons=' +
+    //    search_params.get('on_commons'));
+    window.location = "/import-500px/?page=" + page + "&perpage=" + perpage +
+                      "&on_commons=" + search_params.get('on_commons');
+});
+
+
 </script>
 <style type="text/css">
     .popover{

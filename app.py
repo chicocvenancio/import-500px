@@ -47,11 +47,26 @@ con = sqlalchemy.create_engine(app.config['DBCONSTR'],  pool_recycle=600)
 def index():
     username = flask.session.get('username', None)
     perpage = int(flask.request.args.get('perpage', '20'))
-    total_pages = math.ceil(211335/perpage)
+    on_commons = flask.request.args.get('on_commons', 'False')
+    if on_commons.lower() == 'false' or on_commons == '0':
+        on_commons = False
+    else:
+        on_commons = bool(on_commons)
+    if not on_commons:
+        on_commons = "and commons_name is null"
+    else:
+        on_commons = ''
+    r = con.execute(('select count(*) from s53823__importpx500.photos '
+                    'left join s53823__importpx500.photo_comments '
+                    'on id=photo_id where license != 7 {}'.format(on_commons)))
+    on_commons = flask.request.args.get('on_commons', 'False')
+    total_pages = math.ceil(r.fetchone()[0]/perpage)
+    app.logger.warning('Total pages: {}, perpage: {}'.format(total_pages,
+                                                             perpage))
     page = int(flask.request.args.get('page', random.randint(1, total_pages)))
     return flask.render_template(
         'index.html', page=page, page_name='page', total_pages=total_pages,
-        username=username, perpage=perpage)
+        username=username, perpage=perpage, on_commons=on_commons)
 
 
 @app.route('/pdm', methods=['GET'])
@@ -59,10 +74,23 @@ def pdm():
     username = flask.session.get('username', None)
     page = int(flask.request.args.get('page', '1'))
     perpage = int(flask.request.args.get('perpage', '20'))
-    total_pages = math.ceil(20013/perpage)
+    on_commons = flask.request.args.get('on_commons', 'False')
+    if on_commons.lower() == 'false' or on_commons == '0':
+        on_commons = False
+    else:
+        on_commons = bool(on_commons)
+    if not on_commons:
+        on_commons = "and commons_name is null"
+    else:
+        on_commons = ''
+    r = con.execute(('select count(*) from s53823__importpx500.photos '
+                    'left join s53823__importpx500.photo_comments '
+                    'on id=photo_id license = 7 {}'.format(on_commons)))
+    on_commons = flask.request.args.get('on_commons', 'False')
+    total_pages = math.ceil(r.fetchone()[0]/perpage)
     return flask.render_template(
         'index.html', page=page, page_name='pdm/page', total_pages=total_pages,
-        username=username, perpage=perpage)
+        username=username, perpage=perpage, on_commons=on_commons)
 
 
 @app.route('/author/<int:author_id>', methods=['GET'])
@@ -70,19 +98,32 @@ def author(author_id):
     username = flask.session.get('username', None)
     page = int(flask.request.args.get('page', '1'))
     perpage = int(flask.request.args.get('perpage', '20'))
+    on_commons = flask.request.args.get('on_commons', 'False')
+    if on_commons.lower() == 'false' or on_commons == '0':
+        on_commons = False
+    else:
+        on_commons = bool(on_commons)
+    if not on_commons:
+        on_commons = " and commons_name is null"
+    else:
+        on_commons = ''
     r = con.execute(('select count(*) from s53823__importpx500.photos '
-                    'where author_id=%s'), author_id)
+                    'left join s53823__importpx500.photo_comments '
+                    'on id=photo_id '
+                    'where author_id=%s{}'.format(on_commons)), author_id)
+    on_commons = flask.request.args.get('on_commons', 'False')
     total_pages = math.ceil(r.fetchone()[0]/perpage)
     return flask.render_template(
         'index.html', page=page, total_pages=total_pages, username=username,
-        page_name='author/{}/page'.format(author_id), perpage=perpage)
+        page_name='author/{}/page'.format(author_id), perpage=perpage,
+        on_commons=on_commons)
 
 
 def high_quality_url(photo):
     """Extract the highest quality url from the photo json"""
 
     return ("https://web.archive.org/web/201807id_/" +
-            [url for url in photo['image_url'] if 'm%3D2048/' in url][0])
+            [url for url in photo['image_url'] if 'm%3D2048' in url][0])
 
 
 def author_info(user_id):
@@ -102,7 +143,7 @@ def author_from_photo(photo):
 def name_from_photo(photo):
     name = photo['url'].split('-by')[0].split('/')[-1].replace('-', ' ')
     name = re.sub(r'\b\w', lambda x: x.group().upper(), name)
-    name = urllib.parse.unquote(name)
+    name = urllib.parse.unquote(name).strip()
     return name
 
 
@@ -110,6 +151,8 @@ def build_description(photo):
     author = author_from_photo(photo)
     location = ''
     description = photo['description'] or name_from_photo(photo)
+    description = description.replace('https://', '')
+    description = description.replace('http://', '')
     if photo['latitude'] and photo['longitude']:
         location = '{{{{Location |{} |{}}}}}'.format(
             photo['latitude'], photo['longitude'])
@@ -223,12 +266,50 @@ def upload(photo_id):
                  'VALUES (%s, %s, null) ON DUPLICATE KEY UPDATE commons_name'
                  '=%s;'),  (photo['id'], filename, filename))
         else:
-            app.logger.error(result)
+            app.logger.warning(result)
+            if 'exists' in result['warnings'].keys():
+                con.execute(
+                    ('insert into s53823__importpx500.photo_comments '
+                        'VALUES (%s, %s, null) ON DUPLICATE KEY UPDATE '
+                        'commons_name=%s;'),
+                    (photo['id'], result['warnings']['exists'],
+                        result['warnings']['exists']))
+                app.logger.warning(
+                    'Inserted duplicate commons_name: {}'.format(
+                        result['warnings']['exists']))
     except Exception as e:
         app.logger.error(e)
-        app.logger.error(result, photo['id'])
-        result = e
-    return flask.json.dumps(result)
+        app.logger.error(result)
+        result = {'error': {
+                  'code': e.code, 'info': e.info, 'photo': {
+                      'id': photo['id'], 'name': photo['name']
+                  }}}
+        if e.code == "titleblacklist-forbidden":
+            filename = '500px photo ({}).jpeg'.format(photo['id'])
+            photo['file'] = io.BytesIO(urllib.request.urlopen(url).read())
+            try:
+                result = site.upload(
+                    file=photo['file'],
+                    filename=filename, description=build_description(photo),
+                    comment=("Photo {} imported from 500px"
+                             " with [[:wikitech:Tool:import-500px|"
+                             "import-500px]]").format(name_from_photo(photo)))
+                if result['result'] == 'Success':
+                    con.execute(
+                        ('insert into s53823__importpx500.photo_comments '
+                         'VALUES (%s, %s, null) ON DUPLICATE KEY UPDATE '
+                         'commons_name=%s;'),  (photo['id'], filename,
+                                                filename))
+                else:
+                    app.logger.warning(result)
+            except Exception as e:
+                app.logger.error(e)
+                app.logger.error(result)
+                result = {'error': {
+                          'code': e.code, 'info': e.info, 'photo': {
+                              'id': photo['id'], 'name': photo['name']
+                          }}}
+    return flask.json.dumps(result, indent=2)
 
 
 @app.route('/photo/<int:photo_id>', methods=['GET'])
@@ -262,8 +343,20 @@ def page(page, *args, **kwargs):
 
 def _get_paginated_query(page, where='', *args, **kwargs):
     perpage = int(flask.request.args.get('perpage', '20'))
+    on_commons = flask.request.args.get('on_commons', 'False')
+    if on_commons.lower() == 'false' or on_commons == '0':
+        on_commons = False
+    else:
+        on_commons = bool(on_commons)
     if perpage > 300:
         flask.abort(422)
+    if not on_commons:
+        on_commons = ''
+        if where is None:
+            where = 'WHERE '
+        else:
+            where = where + ' and '
+        where = where + 'commons_name is null'
     offset = (page - 1) * perpage
     r = con.execute(('select id, author, url, license, low_res_url, author_id,'
                      ' comments, commons_name from s53823__importpx500.photos'
@@ -271,6 +364,8 @@ def _get_paginated_query(page, where='', *args, **kwargs):
                      ' on id=photo_id {} limit %s, %s').format(where),
                     (offset, perpage))
     p = r.fetchall()
+    app.logger.warning('Page {}, perpage {}, where {}'.format(page, perpage,
+                                                              where))
     return(flask.json.dumps([{'id': i[0], 'author': i[1], 'url': i[2],
                             'license': i[3], 'low_res_url': i[4],
                             'author_id': i[5], 'comments': i[6],
