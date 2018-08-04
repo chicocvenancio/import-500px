@@ -110,8 +110,9 @@ get_images = function(page, perpage, on_commons){
                            '" data-comments="' + photo.comments +
                            '" tabindex="0" class="photo_div btn' +
                            opacity_class + '">' + '<img class="img-responsive" src=' +
-                            url + '> by ' + decodeURIComponent(photo.author) + '. License: ' +
-                            get_license(photo.license) + '</span>' + buttons + '</div>');
+                            url + '> by ' + decodeURIComponent(photo.author) +
+                            '.<p> License: ' + get_license(photo.license) +
+                            '</p></span>' + buttons + '</div>');
                 $('#content').append($photo);
                 $('#upload_' + photo.id).click( function (event) {
                     $.ajax({
@@ -122,6 +123,7 @@ get_images = function(page, perpage, on_commons){
                         if (data.result === "Success") {
                             new Noty({
                                 "type": "success",
+                                "timeout": 5000,
                                 "text": "File:" + data.filename +
                                 " successfully uploaded to Commons!"
                             }).show();
@@ -273,7 +275,7 @@ $('.per-page a').click(function(){
     //history.pushState({'page': page}, "page " + page, "?page=" + page +
     //    "&perpage=" + perpage + '&on_commons=' +
     //    search_params.get('on_commons'));
-    window.location = "/import-500px/?page=" + page + "&perpage=" + perpage +
+    window.location = window.location.pathname + "?page=" + page + "&perpage=" + perpage +
                       "&on_commons=" + search_params.get('on_commons');
 });
 
@@ -283,7 +285,7 @@ $('.show-on-commons a').click(function(){
     search_params = new URLSearchParams(window.location.search);
     old_action = search_params.get('on_commons');
     if (action !== old_action) {
-        window.location = "/import-500px/?page=" + search_params.get('page') +
+        window.location = window.location.pathname + "?page=" + search_params.get('page') +
             "&perpage=" + search_params.get('perpage') + "&on_commons=" +
             action;
     }
