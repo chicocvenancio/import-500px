@@ -228,7 +228,8 @@ make_popovers = function() {
                    ' <a href="/import-500px/author/' +
                     author_id + '">by ' + $(this).data('author') + '</a>' +
                     commons_file + '<span id="title_extra_' +
-                    $(this).data('photoId') + '"></span>'
+                    $(this).data('photoId') + '"></span> ' +
+                    '<span id="geohack_' + $(this).data('photoId') + '"></span>'
         },
         content: function() {
             var buttons;
@@ -250,6 +251,11 @@ make_popovers = function() {
                         '<a href="https://500px.com' + data.url +
                         '"> (on 500px)</a>'
                     );
+                    if (data.latitude && data.longitude){
+                        $('#geohack_' + data.id ).append($(' <a href="/geohack/geohack.php?params=' +
+                            data.latitude + ';' + data.longitude + '">(geohack)</a>'));
+                    }
+
                 });
         return buttons + '<div id=popover_' + $(this).data('photoId') +
                 '>LOADING json</div>'
