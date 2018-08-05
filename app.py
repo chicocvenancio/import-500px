@@ -241,7 +241,7 @@ def comment(photo_id):
 
 def clean_exif(fp):
     im = Image.open(fp)
-    fp = io.BytesIO()
+    out = io.BytesIO()
     exif_dict = piexif.load(im.info['exif'])
     for k, v in exif_dict.items():
         if type(v) != dict:
@@ -250,18 +250,23 @@ def clean_exif(fp):
             if type(v2) == bytes:
                 if '<' in v2.decode():
                     exif_dict[k][k2] = html.escape(v2.decode()).encode('utf8')
-    app.logger.warning(exif_dict)
     exif_bytes = piexif.dump(exif_dict)
-    im.save(fp, "jpeg", exif=exif_bytes)
-    return fp
+    app.logger.warning({k: v for k, v in exif_dict.items() if type(v) == dict})
+    im.save(out, "jpeg", exif=exif_bytes)
+    return out
+
+
+def pad_jpeg(fp):
+    new_fp = fp.read(2)
+    new_fp = new_fp + b'\xff' * 1024
+    new_fp = new_fp + fp.read()
+    return io.BytesIO(new_fp)
 
 
 def upload_photo(site, photo, filename, count=0, past_result=None):
     if count > 3:
         return past_result
     try:
-        url = high_quality_url(photo)
-        photo['file'] = io.BytesIO(urllib.request.urlopen(url).read())
         result = site.upload(
             file=photo['file'],
             filename=filename, description=build_description(photo),
@@ -290,10 +295,16 @@ def upload_photo(site, photo, filename, count=0, past_result=None):
                   'code': e.code, 'info': e.info, 'photo': {
                       'id': photo['id'], 'name': photo['name']
                   }}}
+        if past_result is not None:
+            if result['error']['code'] == past_result['error']['code']:
+                return past_result
+        url = high_quality_url(photo)
+        photo['file'] = io.BytesIO(urllib.request.urlopen(url).read())
         if e.code == "titleblacklist-forbidden":
             filename = '500px photo ({}).jpeg'.format(photo['id'])
         elif e.code == "verification-error":
-            photo['file'] = clean_exif(photo['file'])
+            photo['file'] = pad_jpeg(photo['file'])
+            #  photo['file'] = clean_exif(photo['file'])
         if e.code in ["titleblacklist-forbidden", "verification-error"]:
             try:
                 count = count + 1
@@ -326,6 +337,8 @@ def upload(photo_id):
         photo = flask.json.loads(j.read())
 
     filename = '{} ({}).jpeg'.format(name_from_photo(photo), photo['id'])
+    url = high_quality_url(photo)
+    photo['file'] = io.BytesIO(urllib.request.urlopen(url).read())
     result = upload_photo(site, photo, filename)
     return flask.json.dumps(result, indent=2)
 
