@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block title %} {{super()}} - detail photo {{ photo.id }}{% endblock %}
-{% block extra_scripts %}{% endblock %}
-{% block header %}{% endblock %}
+{% block extra_scripts %}
+<link rel="stylesheet" href="//tools-static.wmflabs.org/cdnjs/ajax/libs/noty/3.1.4/noty.min.css" />
+<script src="//tools-static.wmflabs.org/cdnjs/ajax/libs/noty/3.1.4/noty.min.js"></script>
+{% endblock %}
 {% block content %}
 {{ photo.name }}, by <a id=author>{{author}}</a>
 <a href="https://500px.com{{photo.url}}">original link</a>,
@@ -9,6 +11,7 @@
 <span id=commons_link></span> <span id="geohack"></span>
 <p> Original description: {{description}}, with the tags: {{tags}}</p>
 <p> License: {{license}}</p>
+<button type="button" class="btn btn-primary" id=upload data-photo-id="{{photo.id}}">Upload to Commons</button>
 <div class="container-fluid">
     <img class="img-responsive" src="{{photo_url}}">
 </div>
@@ -33,5 +36,36 @@ $.getJSON('/import-500px/id/' + window.location.pathname.split('/')[3]).done(
         }
     }
 );
+$('#upload').click( function (event) {
+    $.ajax({
+        method: "POST",
+        url: "/import-500px/upload/" + $(this).data('photoId'),
+        dataType: "json"
+    }).done(function (data, s) {
+        if (data.result === "Success") {
+            new Noty({
+                "type": "success",
+                "timeout": 5000,
+                "text": "File:" + data.filename +
+                " successfully uploaded to Commons!"
+            }).show();
+        } else {
+            new Noty({
+                "type": "error",
+                "text": "Commons API error: " +
+                JSON.stringify(data)
+            }).show();
+        }
+    }).fail(function (data, s) {
+        console.log(data, s);
+        if (data.status === 403) {
+            new Noty({
+                "type": "error",
+                "text": "There was a permission error " +
+                "with the upload, try relogging with OAuth"
+            }).show();
+        }
+    });
+});
 </script>
 {% endblock %}
