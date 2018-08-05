@@ -234,6 +234,33 @@ def comment(photo_id):
         return flask.json.dumps(current_comment)
 
 
+def upload_photo(site, photo, filename):
+    result = site.upload(
+        file=photo['file'],
+        filename=filename, description=build_description(photo),
+        comment=("Photo {} imported from 500px"
+                 " with [[:wikitech:Tool:import-500px|"
+                 "import-500px]]").format(name_from_photo(photo)))
+    if result['result'] == 'Success':
+        con.execute(
+            ('insert into s53823__importpx500.photo_comments '
+             'VALUES (%s, %s, null) ON DUPLICATE KEY UPDATE commons_name'
+             '=%s;'),  (photo['id'], filename, filename))
+    else:
+        app.logger.warning(result)
+        if 'duplicate' in result['warnings'].keys():
+            con.execute(
+                ('insert into s53823__importpx500.photo_comments '
+                    'VALUES (%s, %s, null) ON DUPLICATE KEY UPDATE '
+                    'commons_name=%s;'),
+                (photo['id'], result['warnings']['duplicate'][0],
+                    result['warnings']['duplicate'][0]))
+            app.logger.warning(
+                'Inserted duplicate commons_name: {}'.format(
+                    result['warnings']['duplicate'][0]))
+    return result
+
+
 @app.route('/upload/<int:photo_id>', methods=['POST'])
 def upload(photo_id):
     username = flask.session.get('username', None)
@@ -254,29 +281,7 @@ def upload(photo_id):
     filename = '{} ({}).jpeg'.format(name_from_photo(photo), photo['id'])
     result = None
     try:
-        result = site.upload(
-            file=photo['file'],
-            filename=filename, description=build_description(photo),
-            comment=("Photo {} imported from 500px"
-                     " with [[:wikitech:Tool:import-500px|"
-                     "import-500px]]").format(name_from_photo(photo)))
-        if result['result'] == 'Success':
-            con.execute(
-                ('insert into s53823__importpx500.photo_comments '
-                 'VALUES (%s, %s, null) ON DUPLICATE KEY UPDATE commons_name'
-                 '=%s;'),  (photo['id'], filename, filename))
-        else:
-            app.logger.warning(result)
-            if 'duplicate' in result['warnings'].keys():
-                con.execute(
-                    ('insert into s53823__importpx500.photo_comments '
-                        'VALUES (%s, %s, null) ON DUPLICATE KEY UPDATE '
-                        'commons_name=%s;'),
-                    (photo['id'], result['warnings']['duplicate'][0],
-                        result['warnings']['duplicate'][0]))
-                app.logger.warning(
-                    'Inserted duplicate commons_name: {}'.format(
-                        result['warnings']['duplicate'][0]))
+        result = upload_photo(site, photo, filename)
     except Exception as e:
         app.logger.error(e)
         app.logger.error(result)
@@ -288,19 +293,8 @@ def upload(photo_id):
             filename = '500px photo ({}).jpeg'.format(photo['id'])
             photo['file'] = io.BytesIO(urllib.request.urlopen(url).read())
             try:
-                result = site.upload(
-                    file=photo['file'],
-                    filename=filename, description=build_description(photo),
-                    comment=("Photo {} imported from 500px"
-                             " with [[:wikitech:Tool:import-500px|"
-                             "import-500px]]").format(name_from_photo(photo)))
-                if result['result'] == 'Success':
-                    con.execute(
-                        ('insert into s53823__importpx500.photo_comments '
-                         'VALUES (%s, %s, null) ON DUPLICATE KEY UPDATE '
-                         'commons_name=%s;'),  (photo['id'], filename,
-                                                filename))
-                else:
+                result = upload_photo(site, photo, filename)
+                if result['result'] != 'Success':
                     app.logger.warning(result)
             except Exception as e:
                 app.logger.error(e)
@@ -314,6 +308,7 @@ def upload(photo_id):
 
 @app.route('/photo/<int:photo_id>', methods=['GET'])
 def photo_detail(photo_id):
+    username = flask.session.get('username', None)
     with open('/data/project/import-500px/metadata/{}.json'.format(photo_id)) as j:
         photo = flask.json.loads(j.read())
     description = photo['description'] or name_from_photo(photo)
@@ -322,7 +317,7 @@ def photo_detail(photo_id):
     return flask.render_template(
         'item_detail.html', photo=photo, author=author_from_photo(photo),
         photo_str=flask.json.dumps(photo, indent=2), description=description,
-        photo_url=high_quality_url(photo), license=license)
+        photo_url=high_quality_url(photo), license=license, username=username)
 
 
 @app.route('/id/<int:photo_id>', methods=['GET'])
