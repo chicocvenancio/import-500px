@@ -6,6 +6,7 @@ import io
 import urllib
 import re
 import ast
+import html
 
 import flask
 import mwoauth
@@ -13,6 +14,10 @@ import mwclient
 import yaml
 import sqlalchemy
 import pendulum
+import piexif
+
+
+from PIL import Image
 
 
 app = flask.Flask(__name__)
@@ -85,7 +90,7 @@ def pdm():
         on_commons = ''
     r = con.execute(('select count(*) from s53823__importpx500.photos '
                     'left join s53823__importpx500.photo_comments '
-                    'on id=photo_id license = 7 {}'.format(on_commons)))
+                    'on id=photo_id where license = 7 {}'.format(on_commons)))
     on_commons = flask.request.args.get('on_commons', 'False')
     total_pages = math.ceil(r.fetchone()[0]/perpage)
     return flask.render_template(
@@ -234,30 +239,74 @@ def comment(photo_id):
         return flask.json.dumps(current_comment)
 
 
-def upload_photo(site, photo, filename):
-    result = site.upload(
-        file=photo['file'],
-        filename=filename, description=build_description(photo),
-        comment=("Photo {} imported from 500px"
-                 " with [[:wikitech:Tool:import-500px|"
-                 "import-500px]]").format(name_from_photo(photo)))
-    if result['result'] == 'Success':
-        con.execute(
-            ('insert into s53823__importpx500.photo_comments '
-             'VALUES (%s, %s, null) ON DUPLICATE KEY UPDATE commons_name'
-             '=%s;'),  (photo['id'], filename, filename))
-    else:
-        app.logger.warning(result)
-        if 'duplicate' in result['warnings'].keys():
+def clean_exif(fp):
+    im = Image.open(fp)
+    fp = io.BytesIO()
+    exif_dict = piexif.load(im.info['exif'])
+    for k, v in exif_dict.items():
+        if type(v) != dict:
+            continue
+        for k2, v2 in v.items():
+            if type(v2) == bytes:
+                if '<' in v2.decode():
+                    exif_dict[k][k2] = html.escape(v2.decode()).encode('utf8')
+    app.logger.warning(exif_dict)
+    exif_bytes = piexif.dump(exif_dict)
+    im.save(fp, "jpeg", exif=exif_bytes)
+    return fp
+
+
+def upload_photo(site, photo, filename, count=0, past_result=None):
+    if count > 3:
+        return past_result
+    try:
+        url = high_quality_url(photo)
+        photo['file'] = io.BytesIO(urllib.request.urlopen(url).read())
+        result = site.upload(
+            file=photo['file'],
+            filename=filename, description=build_description(photo),
+            comment=("Photo {} imported from 500px"
+                     " with [[:wikitech:Tool:import-500px|"
+                     "import-500px]]").format(name_from_photo(photo)))
+        if result['result'] == 'Success':
             con.execute(
                 ('insert into s53823__importpx500.photo_comments '
-                    'VALUES (%s, %s, null) ON DUPLICATE KEY UPDATE '
-                    'commons_name=%s;'),
-                (photo['id'], result['warnings']['duplicate'][0],
-                    result['warnings']['duplicate'][0]))
-            app.logger.warning(
-                'Inserted duplicate commons_name: {}'.format(
-                    result['warnings']['duplicate'][0]))
+                 'VALUES (%s, %s, null) ON DUPLICATE KEY UPDATE commons_name'
+                 '=%s;'),  (photo['id'], filename, filename))
+        else:
+            app.logger.warning(result)
+            if 'duplicate' in result['warnings'].keys():
+                con.execute(
+                    ('insert into s53823__importpx500.photo_comments '
+                        'VALUES (%s, %s, null) ON DUPLICATE KEY UPDATE '
+                        'commons_name=%s;'),
+                    (photo['id'], result['warnings']['duplicate'][0],
+                        result['warnings']['duplicate'][0]))
+                app.logger.warning(
+                    'Inserted duplicate commons_name: {}'.format(
+                        result['warnings']['duplicate'][0]))
+    except Exception as e:
+        result = {'result': 'error', 'error': {
+                  'code': e.code, 'info': e.info, 'photo': {
+                      'id': photo['id'], 'name': photo['name']
+                  }}}
+        if e.code == "titleblacklist-forbidden":
+            filename = '500px photo ({}).jpeg'.format(photo['id'])
+        elif e.code == "verification-error":
+            photo['file'] = clean_exif(photo['file'])
+        if e.code in ["titleblacklist-forbidden", "verification-error"]:
+            try:
+                count = count + 1
+                result = upload_photo(site, photo, filename, count, result)
+                if result['result'] != 'Success':
+                    app.logger.warning(result)
+            except Exception as e:
+                app.logger.error(e)
+                app.logger.error(result)
+                result = {'result': 'error', 'error': {
+                          'code': e.code, 'info': e.info, 'photo': {
+                              'id': photo['id'], 'name': photo['name']
+                          }}}
     return result
 
 
@@ -276,33 +325,8 @@ def upload(photo_id):
     with open('/data/project/import-500px/metadata/{}.json'.format(photo_id)) as j:
         photo = flask.json.loads(j.read())
 
-    url = high_quality_url(photo)
-    photo['file'] = io.BytesIO(urllib.request.urlopen(url).read())
     filename = '{} ({}).jpeg'.format(name_from_photo(photo), photo['id'])
-    result = None
-    try:
-        result = upload_photo(site, photo, filename)
-    except Exception as e:
-        app.logger.error(e)
-        app.logger.error(result)
-        result = {'error': {
-                  'code': e.code, 'info': e.info, 'photo': {
-                      'id': photo['id'], 'name': photo['name']
-                  }}}
-        if e.code == "titleblacklist-forbidden":
-            filename = '500px photo ({}).jpeg'.format(photo['id'])
-            photo['file'] = io.BytesIO(urllib.request.urlopen(url).read())
-            try:
-                result = upload_photo(site, photo, filename)
-                if result['result'] != 'Success':
-                    app.logger.warning(result)
-            except Exception as e:
-                app.logger.error(e)
-                app.logger.error(result)
-                result = {'error': {
-                          'code': e.code, 'info': e.info, 'photo': {
-                              'id': photo['id'], 'name': photo['name']
-                          }}}
+    result = upload_photo(site, photo, filename)
     return flask.json.dumps(result, indent=2)
 
 
