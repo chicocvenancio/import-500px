@@ -273,8 +273,8 @@ $('.per-page a').click(function(){
     //$('#per-page').text(perpage + " per page");
     page = Number(search_params.get('page'));
     old_perpage = Number(search_params.get('perpage'));
-    page = page * old_perpage / perpage
-    page = page.toFixed()
+    page = page * old_perpage / perpage;
+    page = Math.ceil(page)
     //get_images(page, perpage, '{{on_commons}}');
     //$('.pagination').twbsPagination('destroy');
     //make_pagination(perpage);
