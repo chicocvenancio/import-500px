@@ -41,6 +41,7 @@
 </div>
 {% endblock %}
 {% block extra_content %}
+<div id="preload"></div>
 <div class="modal fade" id="privacyModal" tabindex="-1" role="dialog" aria-labelledby="privacyModalLabel">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
@@ -75,6 +76,7 @@ get_images = function(page, perpage, on_commons){
     $.getJSON("https://tools.wmflabs.org/import-500px/{{page_name}}/" + page +
             '?perpage=' + perpage + '&on_commons=' + on_commons).done(
         function (data) { 
+            var deferreds;
             $('#content').html('');
             data.forEach(function (photo) {
                 var url, $photo, opacity_class, buttons;
@@ -142,12 +144,54 @@ get_images = function(page, perpage, on_commons){
                                 "text": "There was a permission error " +
                                 "with the upload, try relogging with OAuth"
                             }).show();
+                        } else {
+                            new Noty({
+                                "type": "error",
+                                "text": "Import 500px error: " +
+                                JSON.stringify(data)
+                            }).show();
                         }
                     });
                 });
 
             });
+            deferreds = [];
+            $('img').each(function() {
+                var deferred = $.Deferred();
+                $(this).on('load', deferred.resolve);
+                deferreds.push(deferred);
+            });
             make_popovers();
+            $.when.apply($, deferreds).done(function() {
+                var search_params, perpage, on_commons, page;
+                search_params = new URLSearchParams(window.location.search);
+                perpage = Number(search_params.get('perpage'));
+                on_commons = search_params.get('on_commons');
+                page = Number(search_params.get('page'));
+                page = page + 1;
+                $.getJSON("https://tools.wmflabs.org/import-500px/page/" + page +
+                        '?perpage=' + perpage + '&on_commons=' + on_commons).done(
+                    function (data) {
+                        $('#preload').html('');
+                        data.forEach(function (photo) {
+                            var url;
+                            if (photo.low_res_url){
+                                    url = photo.low_res_url;
+                            } else {
+                                url = photo.url;
+                            }
+                            if (cdn_source === "Internet Archive") {
+                                url = 'https://web.archive.org/web/201807id_/' + url;
+                            } else if (cdn_source !== "500px") {
+                                url = "";
+                            }
+                            $photo = $('<div id="' + photo.id + '" style="background: url(' + url + ') no-repeat -9999px -9999px;">');
+                            $('#preload').append($photo);
+                        })
+                    }
+                )
+            })
+
         }
     );
 };
