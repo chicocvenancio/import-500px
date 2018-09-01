@@ -72,6 +72,21 @@
 <script>
 var page = {{page}}, cdn_source = "Internet Archive", get_images, get_license,
     make_popovers, make_pagination;
+
+make_url = function(photo) {
+    var url;
+    if (photo.low_res_url){
+        url = photo.low_res_url;
+    } else {
+        url = photo.url;
+    }
+    if (cdn_source === "Internet Archive") {
+        url = 'https://web.archive.org/web/201807id_/' + url;
+    } else if (cdn_source !== "500px") {
+        url = "";
+    }
+    return url
+}
 get_images = function(page, perpage, on_commons){
     $.getJSON("https://tools.wmflabs.org/import-500px/{{page_name}}/" + page +
             '?perpage=' + perpage + '&on_commons=' + on_commons).done(
@@ -83,16 +98,7 @@ get_images = function(page, perpage, on_commons){
                 opacity_class = '';
                 buttons = '';
                 //console.log(photo.author);
-                if (photo.low_res_url){
-                    url = photo.low_res_url;
-                } else {
-                    url = photo.url;
-                }
-                if (cdn_source === "Internet Archive") {
-                    url = 'https://web.archive.org/web/201807id_/' + url;
-                } else if (cdn_source !== "500px") {
-                    url = "";
-                }
+                url = make_url(photo);
                 if (photo.commons_name) {
                     opacity_class = " on_commons";
                     buttons = '<a href="//commons.wikimedia.org/wiki/File:' +
@@ -163,33 +169,29 @@ get_images = function(page, perpage, on_commons){
             });
             make_popovers();
             $.when.apply($, deferreds).done(function() {
-                var search_params, perpage, on_commons, page;
+                var search_params, perpage, on_commons, page, preload_page;
                 search_params = new URLSearchParams(window.location.search);
                 perpage = Number(search_params.get('perpage'));
                 on_commons = search_params.get('on_commons');
                 page = Number(search_params.get('page'));
-                page = page + 1;
-                $.getJSON("https://tools.wmflabs.org/import-500px/page/" + page +
-                        '?perpage=' + perpage + '&on_commons=' + on_commons).done(
-                    function (data) {
-                        $('#preload').html('');
-                        data.forEach(function (photo) {
-                            var url;
-                            if (photo.low_res_url){
-                                    url = photo.low_res_url;
-                            } else {
-                                url = photo.url;
-                            }
-                            if (cdn_source === "Internet Archive") {
-                                url = 'https://web.archive.org/web/201807id_/' + url;
-                            } else if (cdn_source !== "500px") {
-                                url = "";
-                            }
-                            $photo = $('<div id="' + photo.id + '" style="background: url(' + url + ') no-repeat -9999px -9999px;">');
-                            $('#preload').append($photo);
-                        })
-                    }
-                )
+                $('#preload').html('');
+                preload_page = function (page) {
+                    $.getJSON(window.location.pathname + "/page/" + page +
+                            '?perpage=' + perpage + '&on_commons=' + on_commons).done(
+                        function (data) {
+                            data.forEach(function (photo) {
+                                var url;
+                                url = make_url(photo);
+                                $photo = $('<div id="' + photo.id +
+                                        '" style="background: url(' + url +
+                                        ') no-repeat -9999px -9999px;">');
+                                $('#preload').append($photo);
+                            })
+                        }
+                    )
+                };
+                preload_page(page + 1);
+                preload_page(page + 2);
             })
 
         }
