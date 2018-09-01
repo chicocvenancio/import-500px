@@ -7,7 +7,7 @@
 {% block content %}
 {{ photo.name }}, by <a id=author>{{author}}</a>
 <a href="https://500px.com{{photo.url}}">original link</a>,
-<a href="https://web.archive.org/web/201807id_/{{photo_url}}">archived_link</a>
+<a href="{{photo_url}}">archived_link</a>
 <span id=commons_link></span> <span id="geohack"></span>
 <p> Original description: {{description}}, with the tags: {{tags}}</p>
 <p> License: {{license}}</p>
