@@ -30,6 +30,15 @@
         </ul>
     </span>
     <span class="dropdown">
+        <button type="button" class="btn btn-default dropdown-toggle" id="preload-direction" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        Preload next pages<span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu preload-direction">
+            <li><a href="#" value="next">Preload next pages</a></li>
+            <li><a href="#" value="previous">Preload previous pages</a></li>
+        </ul>
+    </span>
+    <span class="dropdown">
         <button type="button" class="btn btn-default dropdown-toggle" id="show-on-commons" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
         Hide Commons photos<span class="caret"></span>
         </button>
@@ -190,8 +199,14 @@ get_images = function(page, perpage, on_commons){
                         }
                     )
                 };
-                preload_page(page + 1);
-                preload_page(page + 2);
+                preload = search_params.get('preload');
+                if (preload === 'next') {
+                    preload_page(page + 1);
+                    preload_page(page + 2);
+                } else if (preload === 'previous') {
+                    preload_page(page - 1);
+                    preload_page(page - 2);
+                }
             })
 
         }
@@ -209,7 +224,8 @@ get_license = function (license_int) {
 if (localStorage.getItem('import-500px.privacy_ok')) {
     get_images(page, {{perpage}}, '{{ on_commons }}');
     history.pushState({'page': page}, "page " + page, "?page=" + page +
-        "&perpage=" + {{perpage}} + '&on_commons=' + '{{ on_commons }}');
+        "&perpage=" + {{perpage}} + '&on_commons=' + '{{ on_commons }}' +
+        "&preload=" + '{{ preload }}' );
 } else {
     $('#privacyModal').modal();
 }
@@ -219,7 +235,8 @@ $('#privacy_out').click(function () {
 $('#privacyOK').click(function () {
     get_images(page, {{perpage}}, '{{ on_commons }}');
     history.pushState({'page': page}, "page " + page, "?page=" + page +
-        "&perpage=" + {{perpage}} + '&on_commons=' + '{{ on_commons }}');
+        "&perpage=" + {{perpage}} + '&on_commons=' + '{{ on_commons }}' +
+        "&preload=" + '{{ preload }}' );
     if ($('#privacy_checkbox').prop('checked')) {
         localStorage.setItem('import-500px.privacy_ok', true);
     }
@@ -234,6 +251,10 @@ make_pagination = function (perpage) {
     if (on_commons === "True") {
         $('#show-on-commons').text("Show Commons Photo");
     }
+    preload = search_params.get('preload');
+    if (preload === "previous") {
+        $('#preload-direction').text("Preload previous pages");
+    }
     page = Number(search_params.get('page'));
 $('.pagination').twbsPagination({
     totalPages: {{total_pages}},
@@ -243,10 +264,12 @@ $('.pagination').twbsPagination({
    onPageClick: function (event, page) {
         var search_params, perpage, on_commons;
         search_params = new URLSearchParams(window.location.search);
-        perpage = search_params.get('perpage')
+        perpage = search_params.get('perpage');
+        preload = search_params.get('preload');
         get_images(page, Number(perpage), '{{on_commons}}');
         history.pushState({'page': page}, "page " + page, "?page=" + page +
-            "&perpage=" + perpage + '&on_commons=' + '{{on_commons}}');
+            "&perpage=" + perpage + '&on_commons=' + '{{on_commons}}' +
+            "&preload=" + preload);
    }
    });
 }
@@ -328,7 +351,8 @@ $('.per-page a').click(function(){
     //    "&perpage=" + perpage + '&on_commons=' +
     //    search_params.get('on_commons'));
     window.location = window.location.pathname + "?page=" + page + "&perpage=" + perpage +
-                      "&on_commons=" + search_params.get('on_commons');
+                      "&on_commons=" + search_params.get('on_commons') +
+                      "&preload=" + search_params.get('preload');
 });
 
 $('.show-on-commons a').click(function(){
@@ -340,6 +364,22 @@ $('.show-on-commons a').click(function(){
         window.location = window.location.pathname + "?page=" + search_params.get('page') +
             "&perpage=" + search_params.get('perpage') + "&on_commons=" +
             action;
+    }
+});
+$('.preload-direction a').click(function(){
+    var action, search_params, old_action;
+    action = $(this).attr('value');
+    search_params = new URLSearchParams(window.location.search);
+    old_action = search_params.get('preload');
+    if (old_action === null) {
+        window.location = window.location.pathname + "?page=" + search_params.get('page') +
+            "&perpage=" + search_params.get('perpage') + "&on_commons=" +
+            search_params.get('on_commons') + "&preload=next";
+    }
+    else if (action !== old_action) {
+        window.location = window.location.pathname + "?page=" + search_params.get('page') +
+            "&perpage=" + search_params.get('perpage') + "&on_commons=" +
+            search_params.get('on_commons') + "&preload=" + action;
     }
 });
 </script>

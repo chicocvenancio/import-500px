@@ -7,6 +7,7 @@ import urllib
 import re
 import ast
 import html
+import http
 
 import flask
 import mwoauth
@@ -15,6 +16,7 @@ import yaml
 import sqlalchemy
 import pendulum
 import piexif
+import backoff
 
 
 from PIL import Image
@@ -53,6 +55,7 @@ def index():
     username = flask.session.get('username', None)
     perpage = int(flask.request.args.get('perpage', '20'))
     on_commons = flask.request.args.get('on_commons', 'False')
+    preload = flask.request.args.get('preload', 'next')
     if on_commons.lower() == 'false' or on_commons == '0':
         on_commons = False
     else:
@@ -71,7 +74,8 @@ def index():
     page = int(flask.request.args.get('page', random.randint(1, total_pages)))
     return flask.render_template(
         'index.html', page=page, page_name='page', total_pages=total_pages,
-        username=username, perpage=perpage, on_commons=on_commons)
+        username=username, perpage=perpage, on_commons=on_commons,
+        preload=preload)
 
 
 @app.route('/pdm', methods=['GET'])
@@ -80,6 +84,7 @@ def pdm():
     page = int(flask.request.args.get('page', '1'))
     perpage = int(flask.request.args.get('perpage', '20'))
     on_commons = flask.request.args.get('on_commons', 'False')
+    preload = flask.request.args.get('preload', 'next')
     if on_commons.lower() == 'false' or on_commons == '0':
         on_commons = False
     else:
@@ -95,7 +100,8 @@ def pdm():
     total_pages = math.ceil(r.fetchone()[0]/perpage)
     return flask.render_template(
         'index.html', page=page, page_name='pdm/page', total_pages=total_pages,
-        username=username, perpage=perpage, on_commons=on_commons)
+        username=username, perpage=perpage, on_commons=on_commons,
+        preload=preload)
 
 
 @app.route('/author/<int:author_id>', methods=['GET'])
@@ -103,6 +109,7 @@ def author(author_id):
     username = flask.session.get('username', None)
     page = int(flask.request.args.get('page', '1'))
     perpage = int(flask.request.args.get('perpage', '20'))
+    preload = flask.request.args.get('preload', 'next')
     on_commons = flask.request.args.get('on_commons', 'False')
     if on_commons.lower() == 'false' or on_commons == '0':
         on_commons = False
@@ -115,13 +122,14 @@ def author(author_id):
     r = con.execute(('select count(*) from s53823__importpx500.photos '
                     'left join s53823__importpx500.photo_comments '
                     'on id=photo_id '
-                    'where author_id=%s{}'.format(on_commons)), author_id)
+                    'where author_id=%s{} '
+                    'and license != 7 '.format(on_commons)), author_id)
     on_commons = flask.request.args.get('on_commons', 'False')
     total_pages = math.ceil(r.fetchone()[0]/perpage)
     return flask.render_template(
         'index.html', page=page, total_pages=total_pages, username=username,
         page_name='author/{}/page'.format(author_id), perpage=perpage,
-        on_commons=on_commons)
+        on_commons=on_commons, preload=preload)
 
 
 def high_quality_url(photo):
@@ -321,6 +329,11 @@ def upload_photo(site, photo, filename, count=0, past_result=None):
     return result
 
 
+@backoff.on_exception(backoff.expo, http.client.HTTPException, max_tries=4)
+def urlopen_retry(url):
+    return(urllib.request.urlopen(url).read())
+
+
 @app.route('/upload/<int:photo_id>', methods=['POST'])
 def upload(photo_id):
     username = flask.session.get('username', None)
@@ -338,7 +351,7 @@ def upload(photo_id):
 
     filename = '{} ({}).jpeg'.format(name_from_photo(photo), photo['id'])
     url = high_quality_url(photo)
-    photo['file'] = io.BytesIO(urllib.request.urlopen(url).read())
+    photo['file'] = io.BytesIO(urlopen_retry(url))
     result = upload_photo(site, photo, filename)
     return flask.json.dumps(result, indent=2)
 
@@ -409,7 +422,8 @@ def _get_paginated_query(page, where='', *args, **kwargs):
 
 @app.route('/author/<int:author_id>/page/<int:page>', methods=['GET'])
 def author_page(author_id, page, *args, **kwargs):
-    return (_get_paginated_query(page, where='where author_id=%s' % author_id,
+    return (_get_paginated_query(page, where=('where author_id=%s and '
+                                              'license != 7') % author_id,
                                  *args, **kwargs))
 
 
