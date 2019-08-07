@@ -14,7 +14,6 @@ import mwoauth
 import mwclient
 import yaml
 import sqlalchemy
-import pendulum
 import piexif
 import backoff
 
@@ -170,12 +169,10 @@ def build_description(photo):
         location = '{{{{Location |{} |{}}}}}'.format(
             photo['latitude'], photo['longitude'])
     if photo['taken_at']:
-        date = pendulum.parse(photo['taken_at']).in_tz('UTC').format(
-            'YYYY-MM-DD HH:mm:ss (zz)')
+        date = photo['taken_at'][:19].replace('T', ' ')
     else:
         date = '{{{{other date|before|{}}}}}'.format(
-            pendulum.parse(photo['created_at']).in_tz('UTC').format(
-                'YYYY-MM-DD HH:mm:ss (zz)'))
+            photo['created_at'][:19].replace('T', ' '))
     return DESCRIPTION_TEMPLATE.format(
         description=description.replace('|', ''),
         tags=' ,'.join(['#' + t for t in photo['tags']]),
